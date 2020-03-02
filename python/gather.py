@@ -47,7 +47,6 @@ import requests
 import scipy.ndimage
 import torch
 import torchvision
-from s2cloudless import S2PixelCloudDetector
 
 
 def read_text(uri: str) -> str:
@@ -198,6 +197,8 @@ if __name__ == '__main__':
             resampling=rasterio.enums.Resampling.nearest)
         small_data = np.transpose(small_data, axes=(1, 2, 0))
         small_data = small_data.reshape(1, width_16, height_16, 13) / 1e5
+
+        from s2cloudless import S2PixelCloudDetector
         cloud_detector = S2PixelCloudDetector(
             threshold=0.4, average_over=4, dilation_size=1, all_bands=True)
         small_tmp = cloud_detector.get_cloud_probability_maps(small_data)

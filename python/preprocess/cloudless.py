@@ -37,14 +37,6 @@ import rasterio.enums
 import rasterio.transform
 import rasterio.warp
 
-try:
-    from s2cloudless import S2PixelCloudDetector
-except:
-    # https://stackoverflow.com/a/50255019
-    subprocess.check_call(
-        [sys.executable, '-m', 'pip', 'install', 's2cloudless'])
-    from s2cloudless import S2PixelCloudDetector
-
 
 def cli_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
@@ -71,6 +63,14 @@ if __name__ == '__main__':
     data = np.transpose(data, axes=(1, 2, 0))
     (x, y, c) = data.shape
     data = data.reshape(1, x, y, c) / 1e5
+
+    try:
+        from s2cloudless import S2PixelCloudDetector
+    except:
+        # https://stackoverflow.com/a/50255019
+        subprocess.check_call(
+            [sys.executable, '-m', 'pip', 'install', 's2cloudless'])
+        from s2cloudless import S2PixelCloudDetector
 
     cloud_detector = S2PixelCloudDetector(
         threshold=0.4, average_over=4, dilation_size=1, all_bands=True)
