@@ -39,9 +39,11 @@ def cli_parser() -> argparse.ArgumentParser:
                         default=True, type=ast.literal_eval)
     parser.add_argument('--dryrun', required=False,
                         default=False, type=ast.literal_eval)
+    parser.add_argument('--localrun', required=False,
+                        default=False, type=ast.literal_eval)
     parser.add_argument('--gather', required=True, type=str)
-    parser.add_argument('--jobdef', required=True, type=str)
-    parser.add_argument('--jobqueue', required=True, type=str)
+    parser.add_argument('--jobdef', required=False, type=str)
+    parser.add_argument('--jobqueue', required=False, type=str)
     parser.add_argument('--name', required=True, type=str)
     parser.add_argument('--output-path', required=True, type=str)
     parser.add_argument('--response', required=True, type=str)
@@ -59,24 +61,37 @@ if __name__ == '__main__':
 
     idxs = range(1, len(results)+1)
     for (i, result) in zip(idxs, results):
-        submission = ''.join([
-            'aws batch submit-job ',
-            '--job-name {} '.format('{}-{}'.format(args.name, i)),
-            '--job-queue {} '.format(args.jobqueue),
-            '--job-definition {} '.format(args.jobdef),
-            '--container-overrides vcpus=2,memory=15000,',
-            'command=./download_run.sh,{},'.format(args.gather),
-            '--name,{},'.format(args.name),
-            '--index,{},'.format(i),
-            '--output-path,{},'.format(args.output_path),
-            '--sentinel-path,{},'.format(
-                result.get('sceneMetadata').get('path')),
-            '--architecture,{},'.format(args.architecture) if args.architecture is not None else '',
-            '--weights,{},'.format(args.weights) if args.weights is not None else '',
-            '--bounds,{},{},{},{},'.format(xmin, ymin,
-                                           xmax, ymax) if args.bounds_clip else '',
-            '--backstop,{}'.format(result.get('backstop', False)),
-        ])
+        gather_cmd = [
+            args.gather,
+            '--name', args.name,
+            '--index', i,
+            '--output-path', args.output_path,
+            '--sentinel-path', result.get('sceneMetadata').get('path'),
+            '--backstop', result.get('backstop', False)
+        ]
+
+        if args.bounds_clip:
+            gather_cmd.extend(['--bounds', xmin, ymin, xmax, ymax])
+        if args.architecture:
+            gather_cmd.extend(['--architecture', args.architecture])
+        if args.weights:
+            gather_cmd.extend(['--weights', args.weights])
+
+        gather_cmd = [str(x) for x in gather_cmd]
+
+        if args.localrun:
+            submission = 'python ' + ' '.join(gather_cmd)
+        else:
+            if not (args.jobqueue and args.jobdef):
+                raise ValueError('Must supply jobqueue and jobdef if not localrun')
+            submission = ''.join([
+                'aws batch submit-job ',
+                '--job-name {} '.format('{}-{}'.format(args.name, i)),
+                '--job-queue {} '.format(args.jobqueue),
+                '--job-definition {} '.format(args.jobdef),
+                '--container-overrides vcpus=2,memory=15000,',
+                'command=./download_run.sh,' + ','.join(gather_cmd)])
+
         if args.dryrun:
             print(submission)
         else:

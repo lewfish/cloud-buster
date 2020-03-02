@@ -33,9 +33,9 @@ import copy
 import json
 import math
 import os
-import subprocess
 import sys
 from urllib.parse import urlparse
+import shutil
 
 import boto3
 import numpy as np
@@ -304,8 +304,12 @@ if __name__ == '__main__':
         os.system('rm -f /tmp/scratch.tif')
 
     # Upload final file
-    code = os.system('aws s3 cp {} {}'.format(filename, args.output_path))
-    codes.append(code)
+    if args.output_path.startswith('s3://'):
+        code = os.system('aws s3 cp {} {}'.format(filename, args.output_path))
+        codes.append(code)
+    else:
+        shutil.copy(
+            filename, os.path.join(args.output_path, os.path.basename(filename)))
 
     codes = list(map(lambda c: os.WEXITSTATUS(c) != 0, codes))
     if any(codes):
